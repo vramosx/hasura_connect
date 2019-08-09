@@ -7,3 +7,7 @@ author: Team Flutterando <jacobaraujo7@gmail.com>
 environment:
   sdk: '>=2.4.0 <3.0.0'
 
+dependencies:
+  web_socket_channel: ^1.0.15
+  http: any
+

@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'dart:io';
 import 'dart:math';
-
+import 'dart:html';
+import 'package:http/http.dart' as http;
 import 'hasura_error.dart';
 import 'snapshot.dart';
 
@@ -30,12 +30,12 @@ class HasuraConnect {
   };
 
   String get ramdomKey {
-    var rand = new Random();
-    var codeUnits = new List.generate(8, (index) {
+    var rand =  Random();
+    var codeUnits =  List.generate(8, (index) {
       return rand.nextInt(33) + 89;
     });
 
-    return new String.fromCharCodes(codeUnits);
+    return  String.fromCharCodes(codeUnits);
   }
 
   String _generateBase(String query) {
@@ -64,7 +64,7 @@ class HasuraConnect {
     } else {
       if (isConnected) {
         _channelPromisse
-            .addUtf8Text(_getDocument(query, key, variables).codeUnits);
+            .send(_getDocument(query, key, variables).codeUnits);
       }
       var snap = Snapshot(
           key,
@@ -92,7 +92,7 @@ class HasuraConnect {
         _stopStream(key);
         if (isConnected) {
           _channelPromisse
-              .addUtf8Text(_getDocument(snapshotInternal.query, snapshotInternal.key, snapshotInternal.variables).codeUnits);
+              .send(_getDocument(snapshotInternal.query, snapshotInternal.key, snapshotInternal.variables).codeUnits);
         }
       });
 
@@ -104,7 +104,7 @@ class HasuraConnect {
   _stopStream(String key) {
     var stop = {"id": key, "type": 'stop'};
     if (isConnected)
-      _channelPromisse.addUtf8Text(jsonEncode(stop).codeUnits);
+      _channelPromisse.send(jsonEncode(stop).codeUnits);
   }
 
   String _getDocument(
@@ -123,24 +123,24 @@ class HasuraConnect {
     print("connecting...");
 
     try {
-      _channelPromisse = await WebSocket.connect(url.replaceFirst("http", "ws"),
-          protocols: ['graphql-subscriptions']);
+      _channelPromisse = await WebSocket(url.replaceFirst("http", "ws"),
+          ['graphql-subscriptions']);
       if (token != null) {
         String t = await token();
         if (t != null)
           (_init["payload"] as Map)["headers"]["Authorization"] = t;
       }
 
-      _channelPromisse.addUtf8Text(jsonEncode(_init).codeUnits);
-      var _sub = _channelPromisse.listen((data) {
-        data = jsonDecode(data);
+      _channelPromisse.send(jsonEncode(_init).codeUnits);
+      var _sub = _channelPromisse.onMessage.listen((event) {
+        dynamic data = jsonDecode(event.data);
         if (data["type"] == "data" || data["type"] == "error") {
           _controller.add(data);
         } else if (data["type"] == "connection_ack") {
           print("CONNECTED");
           isConnected = true;
           for (var key in _snapmap.keys) {
-            _channelPromisse.addUtf8Text(_getDocument(_snapmap[key].query,
+            _channelPromisse.send(_getDocument(_snapmap[key].query,
                     _snapmap[key].key, _snapmap[key].variables)
                 .codeUnits);
           }
@@ -150,7 +150,7 @@ class HasuraConnect {
       _sub.onError((e) {
         print(e);
       });
-      await _channelPromisse.done;
+      await _channelPromisse.onOpen;
       await _sub.cancel();
       isConnected = false;
       if (!_isDisconnected) {
@@ -165,7 +165,7 @@ class HasuraConnect {
         if (_onConnect.isCompleted) {
           _onConnect = Completer<bool>();
         }
-        _connect();
+        await _connect();
       }
     }
   }
@@ -173,7 +173,7 @@ class HasuraConnect {
   void _disconnect() {
     print("_disconnect");
     _isDisconnected = true;
-    if (_channelPromisse?.closeCode != null) {
+    if (_channelPromisse?.onClose != null) {
       _channelPromisse.close();
     }
   }
@@ -203,26 +203,15 @@ class HasuraConnect {
   Future _sendPost(Map<String, dynamic> jsonMap) async {
     String jsonString = jsonEncode(jsonMap);
     List<int> bodyBytes = utf8.encode(jsonString);
-    var request = await HttpClient().postUrl(Uri.parse(url));
-    request.headers.removeAll(HttpHeaders.acceptEncodingHeader);
-    request.headers.add("Content-type", "application/json");
-    request.headers.add("Accept", "application/json");
-
+    http.Response response;
     if (token != null) {
       String t = await token();
-      if (t != null) request.headers.add("Authorization", t);
-    }
-    request.headers.set('Content-Length', bodyBytes.length.toString());
-    request.add(bodyBytes);
-    var response = await request.close();
+      if (t != null) 
+      response = await http.post(Uri.parse(url),headers: {"Content-type": "application/json","Accept": "application/json","Authorization": t},);
 
-    String value = "";
-
-    await for (var contents in response.transform(Utf8Decoder())) {
-      value += contents;
     }
 
-    Map json = jsonDecode(value);
+    Map json = jsonDecode(response.body);
 
     if (json.containsKey("errors")) {
       throw HasuraError.fromJson(json["errors"][0]);
