@@ -21,7 +21,7 @@ class HasuraConnect {
 
   final Future<String> Function() token;
 
-  HasuraConnect(this.url, this.headers, {this.token});
+  HasuraConnect(this.url, {this.headers, this.token});
 
   final Map<String, dynamic> _init = {
     "payload": {
