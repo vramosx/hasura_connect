@@ -133,10 +133,8 @@ class HasuraConnect {
 
       _channelPromisse.addUtf8Text(jsonEncode(_init).codeUnits);
       var _sub = _channelPromisse.stream.listen((data) {
-        print("SUBSCRIPTION FDP");
-       
         data = jsonDecode(data);
-         print(data);
+
         if (data["type"] == "data" || data["type"] == "error") {
           _controller.add(data);
         } else if (data["type"] == "connection_ack") {
@@ -153,7 +151,7 @@ class HasuraConnect {
       _sub.onError((e) {
         print(e);
       });
-          print("TA AQUI");
+
       await _channelPromisse.done;
       await _sub.cancel();
       isConnected = false;
@@ -163,7 +161,6 @@ class HasuraConnect {
         _connect();
       }
     } catch (e) {
-          print("DEU ERRO FDP");
       if (!_isDisconnected) {
         await Future.delayed(Duration(milliseconds: 3000));
 
