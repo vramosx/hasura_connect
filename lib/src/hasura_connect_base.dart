@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:websocket/src/websocket_browser.dart';
 import 'dart:math';
-
+import 'package:http/http.dart' as http;
 import 'hasura_error.dart';
 import 'snapshot.dart';
 
@@ -22,7 +22,7 @@ class HasuraConnect {
 
   HasuraConnect(this.url, {this.token});
 
-  final _init = {
+  final Map<String, dynamic> _init = {
     "payload": {
       "headers": {"content-type": "application/json"}
     },
@@ -30,12 +30,12 @@ class HasuraConnect {
   };
 
   String get ramdomKey {
-    var rand = new Random();
-    var codeUnits = new List.generate(8, (index) {
+    final rand = Random();
+    final codeUnits = List.generate(8, (index) {
       return rand.nextInt(33) + 89;
     });
 
-    return new String.fromCharCodes(codeUnits);
+    return String.fromCharCodes(codeUnits);
   }
 
   String _generateBase(String query) {
@@ -127,8 +127,9 @@ class HasuraConnect {
           protocols: ['graphql-ws']);
       if (token != null) {
         String t = await token();
-        if (t != null)
-          (_init["payload"] as Map)["headers"]["Authorization"] = t;
+        if (t != null) {
+          _init["payload"]["headers"]["Authorization"] = t;
+        }
       }
 
       _channelPromisse.addUtf8Text(jsonEncode(_init).codeUnits);
@@ -158,7 +159,7 @@ class HasuraConnect {
       if (!_isDisconnected) {
         await Future.delayed(Duration(milliseconds: 3000));
         if (_onConnect.isCompleted) _onConnect = Completer<bool>();
-        _connect();
+        await _connect();
       }
     } catch (e) {
       if (!_isDisconnected) {
@@ -167,9 +168,54 @@ class HasuraConnect {
         if (_onConnect.isCompleted) {
           _onConnect = Completer<bool>();
         }
-        _connect();
+        await _connect();
       }
     }
+  }
+
+  Future query(String doc, {Map<String, dynamic> variables}) async {
+    if (doc.trimLeft().split(" ")[0] != "query") {
+      doc = "query $doc";
+    }
+    Map<String, dynamic> jsonMap = {
+      'query': doc,
+      'variables': variables,
+    };
+    return _sendPost(jsonMap);
+  }
+
+  Future mutation(String doc, {Map<String, dynamic> variables}) async {
+    if (doc.trim().split(" ")[0] != "mutation") {
+      doc = "mutation $doc";
+    }
+    Map<String, dynamic> jsonMap = {
+      'query': doc,
+      'variables': variables,
+    };
+    return _sendPost(jsonMap);
+  }
+
+  Future _sendPost(Map<String, dynamic> jsonMap) async {
+    String jsonString = jsonEncode(jsonMap);
+    List<int> bodyBytes = utf8.encode(jsonString);
+    http.Response response;
+    if (token != null) {
+      String t = await token();
+      if (t != null) {
+        response = await http.post(Uri.parse(url), headers: {
+          "Content-type": "application/json",
+          "Accept": "application/json",
+          "Authorization": t,
+          'Content-Length': bodyBytes.length.toString()
+        });
+      }
+    }
+    Map json = jsonDecode(response.body);
+
+    if (json.containsKey("errors")) {
+      throw HasuraError.fromJson(json["errors"][0]);
+    }
+    return json;
   }
 
   void _disconnect() {

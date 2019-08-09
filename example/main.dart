@@ -1,5 +1,4 @@
 import 'package:hasura_connect/hasura_connect.dart';
-import 'package:hasura_connect/src/snapshot.dart';
 
 main() async {
   HasuraConnect conn =
@@ -8,7 +7,10 @@ main() async {
   // var r = await conn.query(docQuery);
   // print(r);
 
-  Snapshot snap = conn.subscription(docSubscription, variables: {"limit": 3});
+  Map<String,dynamic> data = await conn.query(docQuery, variables: {"limit": 3});
+  print(data);
+
+  Snapshot snap = await conn.subscription(docSubscription, variables: {"limit": 3});
   snap.stream.listen((data) {
     print(data);
     print("==================");
@@ -31,11 +33,9 @@ String docSubscription = """
 """;
 
 String docQuery = """
-  query {
-    authors {
-        id
-        email
-        name
-      }
+query userList(\$limit: Int!) {
+  users(limit: \$limit) {
+    user_id
   }
+}
 """;
