@@ -10,6 +10,7 @@ import 'snapshot.dart';
 class HasuraConnect {
   final _controller = StreamController.broadcast();
   final Map<String, Snapshot> _snapmap = {};
+  Map<String, String> headers;
 
   WebSocket _channelPromisse;
   bool _isDisconnected = false;
@@ -20,7 +21,7 @@ class HasuraConnect {
 
   final Future<String> Function() token;
 
-  HasuraConnect(this.url, {this.token});
+  HasuraConnect(this.url, this.headers, {this.token});
 
   final Map<String, dynamic> _init = {
     "payload": {
@@ -197,24 +198,18 @@ class HasuraConnect {
 
   Future _sendPost(Map<String, dynamic> jsonMap) async {
     String jsonString = jsonEncode(jsonMap);
-    List<int> bodyBytes = utf8.encode(jsonString);
     http.Response response;
+    if (headers == null) {
+      headers = _init["headers"];
+    }
     if (token != null) {
       String t = await token();
       if (t != null) {
-        response = await http.post(Uri.parse(url), headers: {
-          "Content-type": "application/json",
-          "Accept": "application/json",
-          "Authorization": t,
-          'Content-Length': bodyBytes.length.toString()
-        });
+        headers["Authorization"] = t;
       }
-      response = await http.post(Uri.parse(url), headers: {
-          "Content-type": "application/json",
-          "Accept": "application/json",
-          'Content-Length': bodyBytes.length.toString()
-        });
     }
+    response =
+        await http.post(Uri.parse(url), headers: headers, body: jsonString);
     Map json = jsonDecode(response.body);
 
     if (json.containsKey("errors")) {
