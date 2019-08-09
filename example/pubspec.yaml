@@ -1,0 +1,16 @@
+name: example
+description: Connect your Flutter / Dart apps to Hasura simply.
+version: 0.0.6
+author: Team Flutterando <jacobaraujo7@gmail.com>
+
+environment:
+  sdk: '>=2.4.0 <3.0.0'
+
+dependencies:
+  hasura_connect: any
+
+dependency_overrides:
+  hasura_connect:
+    git:
+      url: https://github.com/Flutterando/hasura_connect
+      ref: web

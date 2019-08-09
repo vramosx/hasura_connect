@@ -209,6 +209,11 @@ class HasuraConnect {
           'Content-Length': bodyBytes.length.toString()
         });
       }
+      response = await http.post(Uri.parse(url), headers: {
+          "Content-type": "application/json",
+          "Accept": "application/json",
+          'Content-Length': bodyBytes.length.toString()
+        });
     }
     Map json = jsonDecode(response.body);
 
