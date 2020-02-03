@@ -316,7 +316,7 @@ class HasuraConnectBase implements HasuraConnect {
     try {
       var response =
           await client.post(url, body: jsonString, headers: headersLocal);
-      Map json = jsonDecode(response.body);
+      Map json = jsonDecode(utf8.decode(response.bodyBytes));
 
       if (response.statusCode == 200) {
         if (hash != null) {
